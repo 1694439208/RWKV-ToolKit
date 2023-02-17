@@ -8,6 +8,7 @@ import torch
 import math
 from torch.nn import functional as F
 import torch.nn as nn
+import time
 
 RWKV_K_CLAMP = 60
 RWKV_K_EPS = 1e-8
@@ -508,3 +509,67 @@ class RWKV_RNN():
             x = x.cpu().numpy().tolist()
 
         return x
+    def run1(self, ctx):
+        w = self.w
+        x = w.emb.weight[ctx[-1]]
+
+        for i in range(self.n_layer):
+            if i == 0:
+                x = self.LN(x, w.blocks[i].ln0)
+            if i == 0 and self.model_type == 'RWKV-ffnPre':
+                x = x + self.FF(self.LN(x, w.blocks[i].ln1), w.blocks[i].ffnPre, f'ffnPre.{i}')
+            else:
+                x = x + self.SA(self.LN(x, w.blocks[i].ln1), w.blocks[i].att, f'att.{i}')
+            x = x + self.FF(self.LN(x, w.blocks[i].ln2), w.blocks[i].ffn, f'ffn.{i}')
+
+        x = self.LN(x, w.ln_out)
+
+        if RWKV_HEAD_QK_DIM > 0:
+            if self.hk == None:
+                self.hk = (w.head_k.weight @ x).unsqueeze(0)
+            else:
+                self.hk = torch.cat(
+                    [self.hk, (w.head_k.weight @ x).unsqueeze(0)], dim=0)
+            if self.hk.shape[0] > self.ctx_len:
+                self.hk = self.hk[-self.ctx_len:, :]
+
+            q = w.head_q.weight @ x
+
+            x = w.head.weight @ x
+            x = x.cpu().numpy().tolist()
+
+            c = (self.hk @ q) / RWKV_HEAD_QK_DIM
+            for i in range(len(c)):
+                x[ctx[i]] += c[i]
+        else:
+            x = w.head.weight @ x
+        return x.float()
+    def forward(self, context, state,tokenizer, preprocess_only = False):
+        #print("+++++++++++++++++++++++++++++++++++++++++++++++")
+        t_begin = time.time_ns()
+        src_len = len(context)
+        ctx = [tokenizer.stoi.get(s, tokenizer.UNKNOWN_CHAR) for s in context]
+
+        self.clear()
+        if state == None:
+            #state = torch.zeros(self.n_layer * 5, self.n_embd, device=self.RUN_DEVICE)
+            #for i in range(self.n_layer):
+            #    state[5*i+4] -= 1e30
+            
+            state = types.SimpleNamespace()
+            for i in range(src_len):
+                x = ctx[:i+1]
+                if i == src_len - 1:
+                    state.out = self.run(x)
+                    self.save(state)
+                    return state.out,state
+                else:
+                    self.run(x)
+            #return x,state
+        else:
+            self.load(state)
+        
+        t_end = time.time_ns()
+        out = self.run(context)
+        self.save(state)
+        return out,state

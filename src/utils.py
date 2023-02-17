@@ -11,6 +11,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from torch.utils.data import Dataset
+import os
 
 
 class Dataset(Dataset):
@@ -58,9 +59,11 @@ class Dataset(Dataset):
                          device=torch.device('cuda'))
         return x, y
 
-
+from tokenizers import Tokenizer
 class TOKENIZER():
     def __init__(self, WORD_NAME, UNKNOWN_CHAR='\ue083'):
+        #self.tokenizer = Tokenizer.from_file(WORD_NAME + '.json')
+
         with open(WORD_NAME + '.json', "r", encoding="utf-16") as result_file:
             self.word_table = json.load(result_file)
 
@@ -81,7 +84,34 @@ class TOKENIZER():
             context = '\n'
 
         return context
+    def encode(self, x):
+        return [self.stoi.get(s, self.UNKNOWN_CHAR) for s in x]
+    
+    def decode(self, x):
+        return [self.itos.get(s, 0) for s in x]
+    def sample_logits1(self, logits, x, ctx_len, temperature=1.0, top_p=1.0,RWKV_RUN_DEVICE = "cpu"):
+        probs = F.softmax(torch.tensor(logits), dim=-1)
 
+        if RWKV_RUN_DEVICE == "cpu":
+            probs = probs.numpy()
+            sorted_probs = np.sort(probs)[::-1]
+            cumulative_probs = np.cumsum(sorted_probs)
+            cutoff = float(sorted_probs[np.argmax(cumulative_probs > top_p)])
+            probs[probs < cutoff] = 0
+            if temperature != 1.0:
+                probs = probs.pow(1.0 / temperature)
+            probs = probs / np.sum(probs)
+            out = np.random.choice(a=len(probs), p=probs)
+            return int(out)
+        else:
+            sorted_probs = torch.sort(probs, descending=True)[0]
+            cumulative_probs = torch.cumsum(sorted_probs, dim=-1).cpu().numpy()
+            cutoff = float(sorted_probs[np.argmax(cumulative_probs > top_p)])
+            probs[probs < cutoff] = 0
+            if temperature != 1.0:
+                probs = probs.pow(1.0 / temperature)
+            out = torch.multinomial(probs, num_samples=1)[0]
+            return int(out)
     def sample_logits(self, out, x, ctx_len, temperature=1.0, top_p_usual=None, top_p_newline=None):
         # out[self.UNKNOWN_CHAR] = -float('Inf')
 
