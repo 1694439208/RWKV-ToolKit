@@ -11,6 +11,13 @@
 链接: https://pan.baidu.com/s/1oh2p2C8qfRJ1XfrUzzj5nA 提取码: 9n3s
 ```
 
+##使用方法 首先下载懒人包 然后把下载的替换掉懒人包里面的代码文件，如果已经下载懒人包，那直接替换
+
+```
+ 如果缺少某些库，可以cd到懒人包的 torch->Scripts 然后在里间运行pip 安装缺少的包 懒人包已经把难装的包都预制了
+```
+
+
 # 参数说明
 https://zhuanlan.zhihu.com/p/432715547
 
