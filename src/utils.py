@@ -59,7 +59,7 @@ class Dataset(Dataset):
                          device=torch.device('cuda'))
         return x, y
 
-from tokenizers import Tokenizer
+#from tokenizers import Tokenizer
 class TOKENIZER():
     def __init__(self, WORD_NAME, UNKNOWN_CHAR='\ue083'):
         #self.tokenizer = Tokenizer.from_file(WORD_NAME + '.json')
