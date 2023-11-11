@@ -36,3 +36,6 @@ epoch_save_path：模型自动存档文件名的前缀。默认为前缀为“tr
 batch_size：训练时并行任务的数量，ctx_len、n_layer、n_head越大，单个任务所占显存就越多。可以先设置batch_size小一点，然后通过任务管理器观察显存占用情况，如果显存没占满，可以把batch_size调高以达到最快的训练速度。
 ```
 
+# 为了项目更好发展，可以支持一下
+
+> # ![](https://github.com/1694439208/BluePrint/raw/master/image/pay.png)
